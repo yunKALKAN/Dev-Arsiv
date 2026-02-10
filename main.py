@@ -2,21 +2,22 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
+import os, importlib.util
 
 app = FastAPI()
 
-# SENİN VERDİĞİN NET BİLGİLERLE GÜNCELLENMİŞ LİNK
-# Kullanıcı: mucizework | Şifre: Muzice123! | Cluster: zeicwx
+# Senin verdiğin mucizework bilgileri ve gerçek Cluster adresin
 uri = "mongodb+srv://mucizework:Muzice123!@cluster0.zeicwx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
+# Bağlantıyı 5 saniye zaman aşımı ile zırhladık
 client = MongoClient(uri, server_api=ServerApi('1'), serverSelectionTimeoutMS=5000)
 
 @app.get("/")
 def ana_sayfa():
     try:
-        # Kapıyı tıkla
+        # Veritabanına ping at
         client.admin.command('ping')
-        return {"Durum": "SISTEM AKTIF", "Veritabani": "BAGLANDI", "Mesaj": "mucizework girişi başarılı!"}
+        return {"Durum": "SISTEM AKTIF", "Veritabani": "BAGLANDI", "Mesaj": "Bütün bağlantılar yapıldı, sunucu uçuşta!"}
     except Exception as e:
         return {"Durum": "SISTEM AKTIF", "Veritabani": "HATA", "Detay": str(e)}
 
