@@ -1,7 +1,13 @@
 from fastapi import FastAPI
+import os
+
 app = FastAPI()
 
-@app.get('/')
+@app.get("/")
 def ana_sayfa():
-    return {'Durum': 'Sistem Canavar Gibi Calisiyor'}
-# Guncelleme
+    return {"Durum": "SISTEM AKTIF", "Mesaj": "Modüller Yüklenmeye Hazır"}
+
+@app.get("/moduller")
+def modulleri_listele():
+    liste = os.listdir("./moduller")
+    return {"Yuklu_Moduller": liste}
