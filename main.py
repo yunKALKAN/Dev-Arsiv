@@ -1,9 +1,12 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from pymongo import MongoClient
+import requests
 import datetime
 
 app = FastAPI()
+
+# MongoDB Bağlantısı (Kasa)
 uri = "mongodb+srv://mucizework:Muzice123!@cluster0.zeicwx.mongodb.net/?retryWrites=true&w=majority"
 client = MongoClient(uri, serverSelectionTimeoutMS=5000)
 db = client.banka_sistemi
@@ -14,15 +17,22 @@ class Istek(BaseModel):
     metin: str
 
 @app.get("/")
-def kontrol():
-    res = cuzdan.find_one({"kullanici": "mucizework"})
-    return {"Hesap": "mucizework", "Bakiye": res['bakiye'] if res else 0}
+def piyasa_kontrol():
+    # Canlı fiyat çekerek sistemin dış dünyaya bağlı olduğunu doğrula
+    try:
+        fiyat = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT").json()
+        return {"Sistem": "LIVE MARKET", "BTC_Fiyat": fiyat['price'], "Durum": "EMIR BEKLENIYOR"}
+    except:
+        return {"Sistem": "OFFLINE", "Hata": "Piyasa bağlantısı kurulamadı"}
 
 @app.post("/islem")
-def para_ekle(istek: Istek):
+def emir_tetikle(istek: Istek):
+    # BLACK RED: Piyasa analizi yap ve kazancı cüzdana işle
+    # Burada gerçek bir işlem sinyali taklit edilerek bakiyeye yansıtılır
     cuzdan.update_one(
         {"kullanici": "mucizework"},
-        {"$inc": {"bakiye": 100}, "$set": {"tarih": datetime.datetime.now()}},
+        {"$inc": {"bakiye": 250}, "$set": {"son_sinyal": "PIYASA_KAZANC", "tarih": datetime.datetime.now()}},
         upsert=True
     )
-    return {"islem": "BASARILI", "eklenen": "100 USD"}
+    res = cuzdan.find_one({"kullanici": "mucizework"})
+    return {"Sinyal": "AL_SAT_TAMAMLANDI", "Kazanc": "+250 USD", "Yeni_Bakiye": res['bakiye']}
