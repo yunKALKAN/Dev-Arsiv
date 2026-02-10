@@ -4,8 +4,6 @@ from pymongo import MongoClient
 import datetime
 
 app = FastAPI()
-
-# Mermi gibi sapan bağlantı
 uri = "mongodb+srv://mucizework:Muzice123!@cluster0.zeicwx.mongodb.net/?retryWrites=true&w=majority"
 client = MongoClient(uri, serverSelectionTimeoutMS=5000)
 db = client.banka_sistemi
@@ -16,16 +14,15 @@ class Istek(BaseModel):
     metin: str
 
 @app.get("/")
-def ana_sayfa():
-    return {"Durum": "SISTEM AKTIF", "Banka": "BAGLI"}
+def kontrol():
+    res = cuzdan.find_one({"kullanici": "mucizework"})
+    return {"Hesap": "mucizework", "Bakiye": res['bakiye'] if res else 0}
 
 @app.post("/islem")
-def para_bas(istek: Istek):
-    # Bankaya (MongoDB) mermiyi sapla
+def para_ekle(istek: Istek):
     cuzdan.update_one(
         {"kullanici": "mucizework"},
         {"$inc": {"bakiye": 100}, "$set": {"tarih": datetime.datetime.now()}},
         upsert=True
     )
-    res = cuzdan.find_one({"kullanici": "mucizework"})
-    return {"Banka_Durumu": "PARA YATIRILDI", "Guncel_Bakiye": res['bakiye']}
+    return {"islem": "BASARILI", "eklenen": "100 USD"}
