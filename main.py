@@ -1,21 +1,25 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-import os, importlib.util
 from pymongo import MongoClient
+from pymongo.server_api import ServerApi
+import os, importlib.util
 
 app = FastAPI()
 
-# Senin bulduğun gerçek link, şifren eklenmiş haliyle
-MONGO_URL = "mongodb+srv://mucizework:Muzice123!@cluster0.zeicwx.mongodb.net/banka_db?retryWrites=true&w=majority&appName=Cluster0"
+# Senin verdiğin URI, şifre 'Muzice123!' ile güncellendi
+uri = "mongodb+srv://mucizework:Muzice123!@cluster0.zeicwx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
-try:
-    client = MongoClient(MONGO_URL, serverSelectionTimeoutMS=5000)
-    db = client.banka_veritabani
-    hesaplar = db.kullanicilar
-    client.admin.command('ping')
-    status = "BAGLANDI"
-except Exception as e:
-    status = f"HATA: {str(e)}"
+# Bağlantı Ayarları
+client = MongoClient(uri, server_api=ServerApi('1'), serverSelectionTimeoutMS=5000)
+db = client.banka_veritabani
+hesaplar = db.kullanicilar
+
+def veritabani_kontrol():
+    try:
+        client.admin.command('ping')
+        return "BAGLANDI"
+    except Exception as e:
+        return f"HATA: {str(e)}"
 
 class Istek(BaseModel):
     kullanici_id: str
@@ -23,7 +27,12 @@ class Istek(BaseModel):
 
 @app.get("/")
 def ana_sayfa():
-    return {"Durum": "SISTEM AKTIF", "Veritabani": status, "Asistan": "Online"}
+    durum = veritabani_kontrol()
+    return {
+        "Durum": "SISTEM AKTIF",
+        "Veritabani": durum,
+        "Mesaj": "Dağıtımı işaretledim. MongoDB'ye başarıyla bağlandınız!" if durum == "BAGLANDI" else "Bağlantı bekleniyor..."
+    }
 
 @app.post("/islem")
 def banka_islemi(istek: Istek):
