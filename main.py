@@ -1,11 +1,15 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-import re
+import re, os
+from pymongo import MongoClient
 
 app = FastAPI()
 
-# Para kazanmanı sağlayacak bakiye verileri (Şimdilik geçici, MongoDB gelince oraya akacak)
-hesaplar = {"kullanici_1": 5000}
+# MongoDB Baglantisi - BURAYI KENDI ADRESINLE DEGISTIR
+MONGO_URL = "mongodb+srv://mucizework:Muzice123!@cluster0.kullanici.mongodb.net/?retryWrites=true&w=majority"
+client = MongoClient(MONGO_URL)
+db = client.banka_veritabani
+hesaplar = db.kullanicilar
 
 class Istek(BaseModel):
     kullanici_id: str
@@ -13,24 +17,21 @@ class Istek(BaseModel):
 
 @app.get("/")
 def ana_sayfa():
-    return {"Durum": "SISTEM AKTIF", "Banka_Asistani": "Hazir"}
+    return {"Durum": "SISTEM AKTIF", "Veritabani": "BAGLANDI"}
 
 @app.post("/islem")
 def banka_islemi(istek: Istek):
     metin = istek.metin.lower()
-    bakiye = hesaplar.get(istek.kullanici_id, 0)
-    
+    kullanici = hesaplar.find_one({"id": istek.kullanici_id})
+    bakiye = kullanici["bakiye"] if kullanici else 0
     if "bakiye" in metin:
-        return {"sonuc": f"Bakiyeniz {bakiye} TL.", "islem_tipi": "bakiye", "bakiye": bakiye}
-    
+        return {"sonuc": f"Bakiyeniz {bakiye} TL.", "bakiye": bakiye}
     elif "gönder" in metin:
         tutar_bul = re.search(r'(\d+)', metin)
         if tutar_bul:
             miktar = int(tutar_bul.group(1))
             if bakiye >= miktar:
-                hesaplar[istek.kullanici_id] -= miktar
-                return {"sonuc": f"Başarılı! {miktar} TL gönderildi.", "islem_tipi": "transfer", "bakiye": hesaplar[istek.kullanici_id]}
-            else:
-                return {"sonuc": "Yetersiz Bakiye!", "islem_tipi": "hata", "bakiye": bakiye}
-    
-    return {"sonuc": "Anlaşılamadı.", "islem_tipi": "hata", "bakiye": bakiye}
+                yeni_bakiye = bakiye - miktar
+                hesaplar.update_one({"id": istek.kullanici_id}, {"$set": {"bakiye": yeni_bakiye}}, upsert=True)
+                return {"sonuc": f"Başarılı! {miktar} TL gönderildi.", "bakiye": yeni_bakiye}
+    return {"sonuc": "Islem anlasilamadi."}
