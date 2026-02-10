@@ -2,36 +2,49 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
-import os
+import datetime
 
 app = FastAPI()
 
-# Küme0 (Cluster0) ve Örnek Mflix Veri Seti Hattı
-# Kullanıcı: mucizework | Şifre: Muzice123!
+# Cluster0 - Para Trafiği Hattı
 uri = "mongodb+srv://mucizework:Muzice123!@cluster0.zeicwx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-
 client = MongoClient(uri, server_api=ServerApi('1'), serverSelectionTimeoutMS=5000)
 
-# Mflix veritabanına ve filmler koleksiyonuna dalıyoruz
-db = client.örnek_mflix
-movies = db.movies
+# Cüzdan ve İşlem Veritabanı
+db = client.banka_sistemi
+cuzdan = db.kullanici_cuzdanlari
 
 @app.get("/")
-def ana_sayfa():
+def durum_kontrol():
     try:
-        # Arşivden rastgele bir başyapıt çekelim
-        film = movies.find_one({"genres": "Drama"})
-        
+        # Mevcut bakiyeyi kontrol et
+        hesap = cuzdan.find_one({"kullanici": "mucizework"})
+        bakiye = hesap['bakiye'] if hesap else 0
         return {
-            "Durum": "MFLIX AKTIF",
-            "Veritabani": "CLUSTER0 BAGLANDI",
-            "Film_Arşivi_Boyutu": "83.14 MB",
-            "Ornek_Film": film['title'] if film else "Arşiv yükleniyor...",
-            "Yıl": film['year'] if film else "-"
+            "Sistem": "PARA MODULU AKTIF",
+            "Kullanici": "mucizework",
+            "Mevcut_Bakiye": f"{bakiye} USD",
+            "Mesaj": "Sistem tetikte, kazanç için /islem rotasını kullan!"
         }
     except Exception as e:
-        return {"Durum": "HATA", "Detay": str(e)}
+        return {"Hata": str(e)}
 
 @app.post("/islem")
-def banka_islemi(istek: BaseModel):
-    return {"sonuc": "Mflix verileri Factory OS modüllerine analiz için aktarıldı."}
+def para_kazan(istek: BaseModel):
+    # OTOMATIK KAZANC TETIKLEYICI
+    # Modüllerden gelen analiz sonucunda 100 USD kazanç ekle
+    try:
+        cuzdan.update_one(
+            {"kullanici": "mucizework"},
+            {"$inc": {"bakiye": 100}, "$set": {"son_islem": datetime.datetime.now()}},
+            upsert=True
+        )
+        yeni_hesap = cuzdan.find_one({"kullanici": "mucizework"})
+        return {
+            "Islem": "BASARILI",
+            "Kazanc": "+100 USD",
+            "Guncel_Bakiye": f"{yeni_hesap['bakiye']} USD",
+            "Durum": "Factory OS v5 Pro Görev Tamamlandı"
+        }
+    except Exception as e:
+        return {"Islem": "HATA", "Detay": str(e)}
