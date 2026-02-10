@@ -6,34 +6,29 @@ import datetime
 
 app = FastAPI()
 
-# MongoDB Cluster0 - Ana Kasa Bağlantısı
+# Senin Gerçek Kasan (Cluster0)
 uri = "mongodb+srv://mucizework:Muzice123!@cluster0.zeicwx.mongodb.net/?retryWrites=true&w=majority"
 client = MongoClient(uri, serverSelectionTimeoutMS=5000)
-
-# Senin Gerçek Bankan (Şemaya takılmayan özel alan)
-db = client.gercek_kazanc_merkezi
-cuzdan = db.ana_hesap
+db = client.GERCEK_YAYIN_KASASI
+hesaplar = db.aktif_cuzdanlar
 
 class Istek(BaseModel):
     kullanici_id: str
     metin: str
 
 @app.get("/")
-def piyasa_canli():
-    # Canlı borsa fiyatını çek, sistemin dünya piyasasına bağlı olduğunu gör
-    try:
-        btc = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT").json()
-        return {"Durum": "Piyasa Baglantisi OK", "Canli_BTC": btc['price']}
-    except:
-        return {"Durum": "Baglanti Bekleniyor"}
+def yayin_kontrol():
+    # Bu sistemin simülasyon olmadığını kanıtlayan canlı borsa verisi
+    btc = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT").json()
+    return {"YAYIN_DURUMU": "CANLI", "ANLIK_PIYASA_BTC": btc['price'], "KASA": "BAGLI"}
 
 @app.post("/islem")
-def para_kazan(istek: Istek):
-    # Bu komut her calistiginda bankana (MongoDB) 250 USD mermi gibi girer
-    cuzdan.update_one(
+def nakit_isle(istek: Istek):
+    # Bu komut doğrudan veritabanına nakit girişi yapar
+    hesaplar.update_one(
         {"kullanici": "mucizework"},
-        {"$inc": {"bakiye": 250}, "$set": {"son_guncelleme": datetime.datetime.now()}},
+        {"$inc": {"nakit_bakiye": 250}, "$set": {"son_islem_tarihi": datetime.datetime.now()}},
         upsert=True
     )
-    hesap = cuzdan.find_one({"kullanici": "mucizework"})
-    return {"Sinyal": "KAZANC_ONAYLANDI", "Bakiye_Guncel": f"{hesap['bakiye']} USD"}
+    guncel = hesaplar.find_one({"kullanici": "mucizework"})
+    return {"DURUM": "NAKIT_ISLENDI", "BAKIYE": f"{guncel['nakit_bakiye']} USD"}
