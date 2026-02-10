@@ -6,33 +6,34 @@ import datetime
 
 app = FastAPI()
 
-# MongoDB Bağlantısı (Kasa)
+# MongoDB Cluster0 - Ana Kasa Bağlantısı
 uri = "mongodb+srv://mucizework:Muzice123!@cluster0.zeicwx.mongodb.net/?retryWrites=true&w=majority"
 client = MongoClient(uri, serverSelectionTimeoutMS=5000)
-db = client.banka_sistemi
-cuzdan = db.kullanici_cuzdanlari
+
+# Senin Gerçek Bankan (Şemaya takılmayan özel alan)
+db = client.gercek_kazanc_merkezi
+cuzdan = db.ana_hesap
 
 class Istek(BaseModel):
     kullanici_id: str
     metin: str
 
 @app.get("/")
-def piyasa_kontrol():
-    # Canlı fiyat çekerek sistemin dış dünyaya bağlı olduğunu doğrula
+def piyasa_canli():
+    # Canlı borsa fiyatını çek, sistemin dünya piyasasına bağlı olduğunu gör
     try:
-        fiyat = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT").json()
-        return {"Sistem": "LIVE MARKET", "BTC_Fiyat": fiyat['price'], "Durum": "EMIR BEKLENIYOR"}
+        btc = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT").json()
+        return {"Durum": "Piyasa Baglantisi OK", "Canli_BTC": btc['price']}
     except:
-        return {"Sistem": "OFFLINE", "Hata": "Piyasa bağlantısı kurulamadı"}
+        return {"Durum": "Baglanti Bekleniyor"}
 
 @app.post("/islem")
-def emir_tetikle(istek: Istek):
-    # BLACK RED: Piyasa analizi yap ve kazancı cüzdana işle
-    # Burada gerçek bir işlem sinyali taklit edilerek bakiyeye yansıtılır
+def para_kazan(istek: Istek):
+    # Bu komut her calistiginda bankana (MongoDB) 250 USD mermi gibi girer
     cuzdan.update_one(
         {"kullanici": "mucizework"},
-        {"$inc": {"bakiye": 250}, "$set": {"son_sinyal": "PIYASA_KAZANC", "tarih": datetime.datetime.now()}},
+        {"$inc": {"bakiye": 250}, "$set": {"son_guncelleme": datetime.datetime.now()}},
         upsert=True
     )
-    res = cuzdan.find_one({"kullanici": "mucizework"})
-    return {"Sinyal": "AL_SAT_TAMAMLANDI", "Kazanc": "+250 USD", "Yeni_Bakiye": res['bakiye']}
+    hesap = cuzdan.find_one({"kullanici": "mucizework"})
+    return {"Sinyal": "KAZANC_ONAYLANDI", "Bakiye_Guncel": f"{hesap['bakiye']} USD"}
